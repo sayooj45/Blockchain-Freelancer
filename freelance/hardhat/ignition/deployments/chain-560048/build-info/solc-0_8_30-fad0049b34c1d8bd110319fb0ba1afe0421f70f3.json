@@ -1,0 +1,39 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_30-fad0049b34c1d8bd110319fb0ba1afe0421f70f3",
+  "solcVersion": "0.8.30",
+  "solcLongVersion": "0.8.30+commit.73712a01",
+  "userSourceNameMap": {
+    "contracts/PostJobs.sol": "project/contracts/PostJobs.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "prague",
+      "optimizer": {
+        "enabled": true,
+        "runs": 200
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode",
+            "evm.deployedBytecode",
+            "evm.methodIdentifiers",
+            "metadata"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/PostJobs.sol": {
+        "content": "// SPDX-License-Identifier: MIT\n\npragma solidity 0.8.30;\n\ncontract postJob {\n    struct jobPosting {\n        string title;\n        string description;\n        string budget;\n        string[] tools;\n    }\n\n    mapping(string => jobPosting) public jobsposting;\n\n    function posting(\n        string memory _id,\n        string memory _title,\n        string memory _description,\n        string memory _budget,\n        string[] memory _tools\n    ) public {\n        jobsposting[_id] = jobPosting(_title, _description, _budget, _tools);\n    }\n}\n"
+      }
+    }
+  }
+}
