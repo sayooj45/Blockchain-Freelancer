@@ -7,7 +7,16 @@ import token from '../assets/images/token.png'
 
 const Navbar = () => {
 
-   const { account, setAccount ,connectWallet} = useContext(AccountContext);
+   const { account, setAccount ,connectWallet,disconnectWallet} = useContext(AccountContext);
+   console.log(account,'account');
+   
+   const handleWalletAction = () => {
+       if (account) {
+           disconnectWallet();
+       } else {
+           connectWallet();
+       }
+   }
 
   return (
 
@@ -25,8 +34,10 @@ const Navbar = () => {
               </div>
             ):''}
             <li className='p-2'><NavLink className={({isActive})=>`hover:underline  hover:text-[#28b9ed] transition-all duration-300${isActive? 'underline text-[#28b9ed]':' text-[#1E293B]'}`} to='/dashboard'>Dashboard</NavLink></li>
-            <li className=''><button className='bg-[#3B82F6] text-white p-2 rounded-lg hover:bg-[#0a63f5] transition-all duration-300' onClick={connectWallet}>
-              {account?`${account.slice(0,6)}...${account.slice(-4)}`:"Connect to Wallet"}</button></li>
+            <li className=''><button className='bg-[#3B82F6] text-white p-2 rounded-lg hover:bg-[#0a63f5] transition-all duration-300' onClick={handleWalletAction}>
+              {account?`${account.slice(0,6)}...${account.slice(-4)}`:"Connect to Wallet"}</button>
+              </li>
+              
         </ul>
         
     </div>

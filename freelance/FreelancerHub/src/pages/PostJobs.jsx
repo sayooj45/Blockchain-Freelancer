@@ -1,7 +1,10 @@
 import React, { useContext, useState } from "react";
 import { AccountContext } from "../context/AccountProvider";
 import jobs from '../assets/freelancer.json'
-import toast, { Toaster } from "react-hot-toast";
+import toast from "react-hot-toast";
+
+
+
 
 const techOptions = [
   "React",
@@ -39,6 +42,7 @@ const handlesubmit =async(e)=>{
     }
     try {
       const id = crypto.randomUUID();
+
    console.log(title,description,budget,id,selectedTech);
    const tx = await client.writeContract({
     address: jobs.ContractAddress,
@@ -162,7 +166,7 @@ settitle("");
         </button>
       </div>
       </form>
-      <Toaster position="top-center"/>
+      
     </div>
   );
 };
