@@ -2,8 +2,10 @@
 pragma solidity 0.8.30;
 
 contract postJob {
+    // -----------------------------------------
     // 1. Enums and Structs
-    // Use an enum for clearer, safer status tracking
+    // -----------------------------------------
+
     enum ApplicationStatus {
         Pending, // 0
         Accepted, // 1
@@ -13,32 +15,63 @@ contract postJob {
     struct jobPosting {
         string title;
         string description;
-        string budget;
+        string budget; // Budget is stored as a string (e.g., "0.01")
         string[] tools;
     }
 
+    struct CompletedJobData {
+        address freelancer;
+        string jobId;
+        string budget;
+        uint256 timestamp;
+    }
+
+    // -----------------------------------------
     // 2. State Variables and Mappings
+    // -----------------------------------------
+
     string[] public jobIds;
     mapping(string => jobPosting) public jobsposting;
     mapping(string => address) public jobOwner;
 
-    // Mapping 1: Stores the list of jobs applied to by a user
+    // Job Application Status
     mapping(address => string[]) public appliedJobs;
-
-    // Mapping 2: Stores the application status for a specific job and applicant
-    // Key: jobId => applicantAddress => Status
     mapping(string => mapping(address => ApplicationStatus))
         public applicationStatus;
 
+    // Job Completion and Payment Status
+    CompletedJobData[] public completedJobsList;
+    mapping(string => bool) public isJobCompleted;
+
+    // 💰 NEW: Mapping to track if the freelancer has received payment for a specific job
+    mapping(string => mapping(address => bool)) public isJobPaid;
+
+    // -----------------------------------------
     // 3. Events
+    // -----------------------------------------
+
     event Applied(address indexed user, string jobId);
+
     event StatusUpdated(
         address indexed user,
         string indexed jobId,
         ApplicationStatus newStatus
     );
 
+    event JobCompleted(address indexed freelancer, string jobId, string budget);
+
+    // 💰 NEW: Event for when the final payment is made
+    event JobFinalizedAndPaid(
+        address indexed payer,
+        address indexed freelancer,
+        string jobId,
+        uint256 amount
+    );
+
+    // -----------------------------------------
     // 4. Job Posting Functions
+    // -----------------------------------------
+
     function posting(
         string memory _id,
         string memory _title,
@@ -46,7 +79,6 @@ contract postJob {
         string memory _budget,
         string[] memory _tools
     ) public {
-        // Basic check to prevent ID reuse (good practice)
         require(
             bytes(jobsposting[_id].title).length == 0,
             "Job ID already exists"
@@ -77,20 +109,20 @@ contract postJob {
         return (j.title, j.description, j.budget, j.tools);
     }
 
+    // -----------------------------------------
     // 5. Job Application Functions
+    // -----------------------------------------
+
     function applyJob(string memory _id) public {
-        // Prevent duplicate apply (using a common optimization pattern)
         string[] storage list = appliedJobs[msg.sender];
+        // Check for duplicate application
         for (uint i = 0; i < list.length; i++) {
             if (keccak256(bytes(list[i])) == keccak256(bytes(_id))) {
                 revert("Already Applied");
             }
         }
 
-        // Save applied job
         list.push(_id);
-
-        // 💡 CRITICAL FIX: Initialize status to Pending (0)
         applicationStatus[_id][msg.sender] = ApplicationStatus.Pending;
 
         emit Applied(msg.sender, _id);
@@ -102,7 +134,6 @@ contract postJob {
         return appliedJobs[user];
     }
 
-    // NEW: Get the current application status for a specific job and user
     function getApplicationStatus(
         string memory _id,
         address _applicant
@@ -110,33 +141,99 @@ contract postJob {
         return applicationStatus[_id][_applicant];
     }
 
-    // NEW: Function for the Job Owner to change the application status
+    // Function for the Job Owner to Accept/Reject
     function updateApplicationStatus(
         string memory _id,
         address _applicant,
         ApplicationStatus _newStatus
     ) public {
-        // Only the job owner can call this
         require(jobOwner[_id] == msg.sender, "Not the job owner");
-
-        // Ensure the job exists and the applicant has applied (optional but good)
-        // Note: The getter will return Pending(0) if not applied, which is fine
-
-        // Update the status
         applicationStatus[_id][_applicant] = _newStatus;
-
         emit StatusUpdated(_applicant, _id, _newStatus);
     }
 
-    mapping(string => mapping(address => bool)) public jobCompleted;
+    // -----------------------------------------
+    // 6. Job Completion Function (Freelancer side)
+    // -----------------------------------------
 
-    function markCompleted(string memory _id) public {
-        // Only accepted applicant can mark complete
+    // This is called by the Freelancer when they finish the work
+    function completeJob(string memory _id) public {
+        // 1. Check if the job is already completed to prevent double submission
+        require(!isJobCompleted[_id], "Job is already completed");
+
+        // 2. Check if the caller is the accepted freelancer
         require(
             applicationStatus[_id][msg.sender] == ApplicationStatus.Accepted,
-            "Not accepted for this job"
+            "You are not the accepted freelancer"
         );
 
-        jobCompleted[_id][msg.sender] = true;
+        // 3. Retrieve budget from the original job posting
+        jobPosting storage job = jobsposting[_id];
+        string memory _budget = job.budget;
+
+        // 4. Store the completion data
+        completedJobsList.push(
+            CompletedJobData({
+                freelancer: msg.sender,
+                jobId: _id,
+                budget: _budget,
+                timestamp: block.timestamp
+            })
+        );
+
+        // 5. Mark job as completed
+        isJobCompleted[_id] = true;
+
+        // 6. Emit event
+        emit JobCompleted(msg.sender, _id, _budget);
+    }
+
+    // Helper to get all completed jobs
+    function getAllCompletedJobs()
+        public
+        view
+        returns (CompletedJobData[] memory)
+    {
+        return completedJobsList;
+    }
+
+    // -----------------------------------------
+    // 7. 💰 Finalize and Payment Function (Job Owner side)
+    // -----------------------------------------
+
+    /**
+     * @notice Called by the Job Owner to accept the work and transfer the payment to the freelancer.
+     * @param _id The job ID.
+     * @param _freelancer The address of the accepted freelancer.
+     */
+    function acceptWorkAndPay(
+        string memory _id,
+        address _freelancer
+    ) public payable {
+        // 1. Authorization and Status Checks
+        require(jobOwner[_id] == msg.sender, "Not the job owner");
+        require(
+            applicationStatus[_id][_freelancer] == ApplicationStatus.Accepted,
+            "Freelancer not accepted"
+        );
+        require(
+            isJobCompleted[_id],
+            "Work has not been completed by freelancer"
+        );
+        require(!isJobPaid[_id][_freelancer], "Job is already paid");
+
+        // The job owner must attach the payment value (msg.value) in the transaction.
+        uint256 paymentAmount = msg.value;
+
+        // 2. Transfer funds to the Freelancer
+        // Using low-level call for robust Ether transfer
+        (bool success, ) = payable(_freelancer).call{value: paymentAmount}("");
+        require(success, "Payment transfer failed");
+
+        // 3. Finalize state
+        isJobPaid[_id][_freelancer] = true;
+
+        // 4. Emit event
+        emit JobFinalizedAndPaid(msg.sender, _freelancer, _id, paymentAmount);
     }
 }
