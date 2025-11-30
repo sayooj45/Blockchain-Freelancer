@@ -38,22 +38,24 @@ export const AccountProvider = ({ children }) => {
         toast.success("Wallet disconnected");
     };
 
-    const writeContract = async ({ address, abi, functionName, args }) => {
+    const writeContract = async ({ address, abi, functionName, args, value, ...rest }) => {
         if (!account) {
             toast.error("Please connect your wallet first.");
             return;
         }
         
         try {
-            // Viem's built-in writeContract function that uses the Wallet Client (`client`)
             const hash = await client.writeContract({
                 address,
                 abi,
                 functionName,
                 args,
-                account, // The connected account is the sender (signer)
+                value,    
+                account,   
+                ...rest,   
             });
 
+            
             toast.promise(
                 publicClient.waitForTransactionReceipt({ hash }),
                 {
@@ -63,15 +65,13 @@ export const AccountProvider = ({ children }) => {
                 }
             );
 
-            // Return the hash immediately so the calling function can track it
             return hash; 
 
         } catch (error) {
             console.error("writeContract error:", error);
-            // Show user-friendly error from the transaction
             const reason = error.shortMessage || "Transaction failed";
             toast.error(reason);
-            throw error; // Re-throw to handle it in the component
+            throw error; 
         }
     };
 
