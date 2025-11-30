@@ -1,7 +1,8 @@
 import { createContext, useState } from "react";
 import toast from "react-hot-toast";
 import { createPublicClient, createWalletClient, custom } from "viem";
-import { hardhat } from "viem/chains";
+import { hardhat,hoodi } from "viem/chains";
+
 
 export const AccountContext = createContext();
 
@@ -34,7 +35,7 @@ export const AccountProvider = ({ children }) => {
       }
 
       const disconnectWallet = () => {
-        setAccount(""); // Clear the account address in state
+        setAccount(""); 
         toast.success("Wallet disconnected");
     };
 

@@ -2,10 +2,6 @@
 pragma solidity 0.8.30;
 
 contract postJob {
-    // -----------------------------------------
-    // 1. Enums and Structs
-    // -----------------------------------------
-
     enum ApplicationStatus {
         Pending, // 0
         Accepted, // 1
@@ -15,7 +11,7 @@ contract postJob {
     struct jobPosting {
         string title;
         string description;
-        string budget; // Budget is stored as a string (e.g., "0.01")
+        string budget;
         string[] tools;
     }
 
@@ -25,10 +21,6 @@ contract postJob {
         string budget;
         uint256 timestamp;
     }
-
-    // -----------------------------------------
-    // 2. State Variables and Mappings
-    // -----------------------------------------
 
     string[] public jobIds;
     mapping(string => jobPosting) public jobsposting;
@@ -43,12 +35,7 @@ contract postJob {
     CompletedJobData[] public completedJobsList;
     mapping(string => bool) public isJobCompleted;
 
-    // 💰 NEW: Mapping to track if the freelancer has received payment for a specific job
     mapping(string => mapping(address => bool)) public isJobPaid;
-
-    // -----------------------------------------
-    // 3. Events
-    // -----------------------------------------
 
     event Applied(address indexed user, string jobId);
 
@@ -60,17 +47,12 @@ contract postJob {
 
     event JobCompleted(address indexed freelancer, string jobId, string budget);
 
-    // 💰 NEW: Event for when the final payment is made
     event JobFinalizedAndPaid(
         address indexed payer,
         address indexed freelancer,
         string jobId,
         uint256 amount
     );
-
-    // -----------------------------------------
-    // 4. Job Posting Functions
-    // -----------------------------------------
 
     function posting(
         string memory _id,
@@ -109,13 +91,8 @@ contract postJob {
         return (j.title, j.description, j.budget, j.tools);
     }
 
-    // -----------------------------------------
-    // 5. Job Application Functions
-    // -----------------------------------------
-
     function applyJob(string memory _id) public {
         string[] storage list = appliedJobs[msg.sender];
-        // Check for duplicate application
         for (uint i = 0; i < list.length; i++) {
             if (keccak256(bytes(list[i])) == keccak256(bytes(_id))) {
                 revert("Already Applied");
@@ -152,13 +129,8 @@ contract postJob {
         emit StatusUpdated(_applicant, _id, _newStatus);
     }
 
-    // -----------------------------------------
-    // 6. Job Completion Function (Freelancer side)
-    // -----------------------------------------
-
     // This is called by the Freelancer when they finish the work
     function completeJob(string memory _id) public {
-        // 1. Check if the job is already completed to prevent double submission
         require(!isJobCompleted[_id], "Job is already completed");
 
         // 2. Check if the caller is the accepted freelancer
@@ -197,10 +169,6 @@ contract postJob {
         return completedJobsList;
     }
 
-    // -----------------------------------------
-    // 7. 💰 Finalize and Payment Function (Job Owner side)
-    // -----------------------------------------
-
     /**
      * @notice Called by the Job Owner to accept the work and transfer the payment to the freelancer.
      * @param _id The job ID.
@@ -226,14 +194,11 @@ contract postJob {
         uint256 paymentAmount = msg.value;
 
         // 2. Transfer funds to the Freelancer
-        // Using low-level call for robust Ether transfer
         (bool success, ) = payable(_freelancer).call{value: paymentAmount}("");
         require(success, "Payment transfer failed");
 
-        // 3. Finalize state
         isJobPaid[_id][_freelancer] = true;
 
-        // 4. Emit event
         emit JobFinalizedAndPaid(msg.sender, _freelancer, _id, paymentAmount);
     }
 }
