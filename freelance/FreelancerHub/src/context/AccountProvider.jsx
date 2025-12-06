@@ -10,12 +10,12 @@ export const AccountProvider = ({ children }) => {
   const [account, setAccount] = useState("");
 
     const client = createWalletClient({
-      chain:hardhat,
+      chain:hoodi,
       transport:custom(window.ethereum),
     })
 
      const publicClient = createPublicClient({
-    chain: hardhat,
+    chain: hoodi,
     transport:custom(window.ethereum),
   });
 
